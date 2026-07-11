@@ -29,7 +29,7 @@ export function LoadingAnalysis({ step }: LoadingAnalysisProps) {
       </div>
 
       <h2 className="text-2xl font-bold mb-2">Analyzing Your Technique</h2>
-      <p className="text-stone-400 text-sm mb-8">PitchIQ AI Coach is reviewing your clip</p>
+      <p className="text-stone-400 text-sm mb-8">WinStrats AI is reviewing your clip</p>
 
       <div className="w-full max-w-md space-y-3">
         {STEPS.map((label, i) => (

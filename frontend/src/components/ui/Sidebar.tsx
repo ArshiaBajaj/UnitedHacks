@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { Clock, Folder, Layers, Share2, Shapes, Users } from 'lucide-react'
+import { Clock, Folder, Layers, Share2, Users } from 'lucide-react'
+import { WinStratsLogo } from './WinStratsLogo'
 import { useEffect, useState } from 'react'
 import { fetchDemos } from '../../lib/api'
 import { useTactixStore } from '../../store/useTactixStore'
@@ -30,14 +31,7 @@ export function Sidebar() {
       className="absolute left-4 top-20 bottom-28 w-60 z-30 glass-deep rounded-3xl flex flex-col overflow-hidden"
     >
       <div className="px-5 pt-5 pb-3">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-            <Shapes className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
-          <span className="font-black tracking-tight">
-            Tactix<span className="text-gradient">3D</span>
-          </span>
-        </div>
+        <WinStratsLogo size="sm" className="mb-4" />
 
         <nav className="space-y-0.5">
           {NAV.map(({ icon: Icon, label }) => (

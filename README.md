@@ -1,8 +1,8 @@
-# Tactix3D ⚽
+# WinStrats ⚽
 
-**Figma meets ChatGPT for sports strategy.**
+**Train. Achieve. Win.**
 
-Tactix3D is an AI-powered web application that lets coaches, players, and fans create, visualize, and collaborate on soccer strategies in an interactive **3D stadium**. Describe a play in natural language — *"Run a counterattack with the winger cutting inside"* — and watch it animate instantly. Share a live link and edit together in real time.
+WinStrats is an AI-powered soccer app for improvement — coaches, players, and fans create, visualize, and collaborate on strategies in an interactive **3D stadium**. Describe a play in natural language — *"Run a counterattack with the winger cutting inside"* — and watch it animate instantly. Share a live link and edit together in real time.
 
 Built for **UnitedHacks 2026 · Sport Track · World Cup**.
 
@@ -43,15 +43,28 @@ Open **http://localhost:5173**
 
 ## Real AI Generation
 
-1. Get a key from [Google AI Studio](https://aistudio.google.com/apikey)
+### Option A — Hugging Face (recommended)
+
+1. Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) (Read access is enough)
 2. Create `backend/.env`:
+   ```
+   HF_TOKEN=hf_your_token_here
+   HF_MODEL=Qwen/Qwen2.5-7B-Instruct
+   LLM_PROVIDER=huggingface
+   ```
+3. Restart the backend and type any custom tactic in the AI panel
+
+### Option B — Google Gemini
+
+1. Get a key from [Google AI Studio](https://aistudio.google.com/apikey)
+2. Add to `backend/.env`:
    ```
    GEMINI_API_KEY=your_key_here
    GEMINI_MODEL=gemini-2.0-flash
+   LLM_PROVIDER=gemini
    ```
-3. Type any custom tactic in the AI panel
 
-Without an API key, smart demo matching still works for common prompts.
+If both keys are set, `LLM_PROVIDER=auto` prefers **Hugging Face**. Without any API key, smart demo matching still works for common prompts.
 
 ## Tech Stack
 
@@ -60,7 +73,7 @@ Without an API key, smart demo matching still works for common prompts.
 | 3D Engine | Three.js, React Three Fiber, Drei |
 | Frontend | React 19, TypeScript, Tailwind v4, Framer Motion, Zustand |
 | Backend | FastAPI, Python Socket.IO |
-| AI | Google Gemini 2.0 Flash (structured JSON plays) |
+| AI | Hugging Face Inference (default) or Google Gemini |
 | Collab | WebSocket rooms with play + playback sync |
 
 ## Architecture

@@ -20,9 +20,9 @@ export function Landing({ onStart, onDemo, profile }: LandingProps) {
 
       <header className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">⚽</span>
-          <span className="text-xl font-black tracking-tight">
-            Pitch<span className="text-grass">IQ</span>
+          <img src="/logo.png" alt="WinStrats" className="h-9 w-9 rounded-full object-cover ring-2 ring-amber-500/30" />
+          <span className="text-xl font-black tracking-tight text-amber-400">
+            Win<span className="text-teal-300">Strats</span>
           </span>
         </div>
         {profile.totalXp > 0 && (

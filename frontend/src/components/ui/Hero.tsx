@@ -3,6 +3,7 @@ import { Activity, ArrowRight, Gauge, Percent, Shapes, Sparkles, Trophy } from '
 import { computeMetrics } from '../../lib/metrics'
 import { useTactixStore } from '../../store/useTactixStore'
 import { MetricCard } from './MetricCard'
+import { WinStratsLogo } from './WinStratsLogo'
 
 export function Hero() {
   const setUiPhase = useTactixStore((s) => s.setUiPhase)
@@ -29,17 +30,10 @@ export function Hero() {
         transition={{ delay: 0.2, type: 'spring', stiffness: 100 }}
         className="relative z-10 flex items-center justify-between px-8 py-6 pointer-events-auto"
       >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/40">
-            <Shapes className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
-          </div>
-          <span className="text-lg font-black tracking-tight">
-            Tactix<span className="text-gradient">3D</span>
-          </span>
-        </div>
+        <WinStratsLogo size="md" showTagline />
         <div className="glass rounded-full px-4 py-1.5 flex items-center gap-2 text-xs text-zinc-400">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
-          Live 3D Engine · UnitedHacks 2026
+          Soccer App for Improvement
         </div>
       </motion.nav>
 
@@ -57,14 +51,14 @@ export function Hero() {
           </div>
 
           <h1 className="text-6xl md:text-8xl font-black leading-[0.95] tracking-tighter mb-6">
-            The Future of
+            Train. Achieve.
             <br />
-            <span className="text-gradient">Sports Strategy</span>
+            <span className="text-gradient">Win.</span>
           </h1>
 
           <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed font-medium">
-            Describe any play in plain English. Watch it come alive as a cinematic
-            3D simulation. Collaborate live — like Figma, for the beautiful game.
+            WinStrats turns your ideas into cinematic 3D soccer plays. Describe a tactic,
+            watch it animate, and collaborate live with your team.
           </p>
 
           <motion.button

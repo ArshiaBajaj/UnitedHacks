@@ -6,15 +6,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from collab import rooms
-from generator import generate_play, list_demos
+from generator import generate_play, get_llm_provider, hf_token, list_demos
 from models import GenerateRequest, GenerateResponse, Play
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 CORS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
-fastapi_app = FastAPI(title="Tactix3D API", description="AI 3D Sports Strategy Engine")
+fastapi_app = FastAPI(title="WinStrats API", description="Soccer App for Improvement — AI 3D Strategy Engine")
 
 fastapi_app.add_middleware(
     CORSMiddleware,
@@ -27,7 +27,13 @@ fastapi_app.add_middleware(
 
 @fastapi_app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "gemini_configured": bool(os.getenv("GEMINI_API_KEY"))}
+    provider = get_llm_provider()
+    return {
+        "status": "ok",
+        "llm_provider": provider,
+        "huggingface_configured": bool(hf_token()),
+        "gemini_configured": bool(os.getenv("GEMINI_API_KEY")),
+    }
 
 
 @fastapi_app.post("/generate", response_model=GenerateResponse)

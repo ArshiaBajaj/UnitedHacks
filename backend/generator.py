@@ -1,13 +1,15 @@
 import json
 import os
+import re
 import uuid
 
+import httpx
 from google import genai
 from google.genai import types
 
 from models import BallTrack, GenerateResponse, Keyframe, Play, PlayerTrack
 
-SYSTEM = """You are Tactix3D, an elite soccer tactics engine used by professional coaches.
+SYSTEM = """You are WinStrats, an elite soccer tactics engine used by professional coaches.
 Generate realistic soccer plays as JSON. Coordinates use a centered pitch:
 - x axis: -52.5 (own goal) to +52.5 (opponent goal), length 105m
 - z axis: -34 (left touchline) to +34 (right touchline), width 68m
@@ -21,7 +23,7 @@ Rules:
 - Each player needs keyframes at t=0 and at least 2 more keyframes showing movement
 - Ball keyframes must sync with passes (ball near passer then receiver)
 - Movements must be tactically realistic
-- Return ONLY valid JSON matching the schema"""
+- Return ONLY valid JSON matching the schema. No markdown, no code fences."""
 
 
 def _kf(t: float, x: float, z: float) -> Keyframe:
@@ -149,6 +151,27 @@ def _build_demos() -> None:
 _build_demos()
 
 
+def hf_token() -> str | None:
+    return (
+        os.getenv("HF_TOKEN")
+        or os.getenv("HUGGINGFACE_API_KEY")
+        or os.getenv("HF_API_KEY")
+    )
+
+
+def get_llm_provider() -> str | None:
+    explicit = os.getenv("LLM_PROVIDER", "auto").lower()
+    if explicit == "huggingface":
+        return "huggingface" if hf_token() else None
+    if explicit == "gemini":
+        return "gemini" if os.getenv("GEMINI_API_KEY") else None
+    if hf_token():
+        return "huggingface"
+    if os.getenv("GEMINI_API_KEY"):
+        return "gemini"
+    return None
+
+
 def match_demo(prompt: str) -> Play | None:
     p = prompt.lower()
     if any(w in p for w in ["corner", "set piece", "set-piece", "cross"]):
@@ -158,6 +181,95 @@ def match_demo(prompt: str) -> Play | None:
     if any(w in p for w in ["counter", "winger", "cut inside", "break", "fast"]):
         return DEMO_PLAYS["counterattack"].model_copy(deep=True)
     return None
+
+
+def _user_prompt(prompt: str) -> str:
+    return f"""Create a soccer play for: "{prompt}"
+
+Return JSON:
+{{
+  "name": "...",
+  "description": "...",
+  "duration": 8.0,
+  "tags": ["..."],
+  "players": [{{"id":"a7","team":"attack","number":7,"role":"LW","keyframes":[{{"t":0,"x":0,"z":0}}]}}],
+  "ball": {{"keyframes":[{{"t":0,"x":0,"z":0}}]}}
+}}"""
+
+
+def extract_json(raw: str) -> dict:
+    text = raw.strip()
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fence:
+        text = fence.group(1).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1:
+        text = text[start : end + 1]
+    return json.loads(text)
+
+
+def call_huggingface(prompt: str) -> str:
+    token = hf_token()
+    if not token:
+        raise ValueError("HF_TOKEN not configured")
+
+    model = os.getenv(
+        "HF_MODEL",
+        "Qwen/Qwen2.5-7B-Instruct",
+    )
+    url = os.getenv(
+        "HF_API_URL",
+        "https://router.huggingface.co/v1/chat/completions",
+    )
+
+    with httpx.Client(timeout=120.0) as client:
+        response = client.post(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": _user_prompt(prompt)},
+                ],
+                "max_tokens": 4096,
+                "temperature": 0.4,
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    choices = payload.get("choices") or []
+    if not choices:
+        raise ValueError("Empty Hugging Face response")
+
+    content = choices[0].get("message", {}).get("content")
+    if not content:
+        raise ValueError("Empty Hugging Face message content")
+    return content
+
+
+def call_gemini(prompt: str) -> str:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY not configured")
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+        contents=_user_prompt(prompt),
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM,
+            response_mime_type="application/json",
+            temperature=0.5,
+        ),
+    )
+
+    raw = response.text
+    if not raw:
+        raise ValueError("Empty Gemini response")
+    return raw
 
 
 def generate_play(prompt: str, demo: bool = False) -> GenerateResponse:
@@ -170,58 +282,39 @@ def generate_play(prompt: str, demo: bool = False) -> GenerateResponse:
             ai_summary=f"Generated demo play: {play.name}. {play.description}",
         )
 
+    provider = get_llm_provider()
     matched = match_demo(prompt)
-    if matched and not os.getenv("GEMINI_API_KEY"):
-        play = matched.model_copy(deep=True)
+
+    if provider is None:
+        play = (matched or DEMO_PLAYS["default"]).model_copy(deep=True)
         play.id = str(uuid.uuid4())[:8]
         return GenerateResponse(
             play=play,
-            ai_summary=f"AI-matched tactical pattern: {play.name}",
+            ai_summary=(
+                f"Demo mode — matched '{play.name}'. "
+                "Add HF_TOKEN or GEMINI_API_KEY for custom AI generation."
+            ),
         )
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        play = DEMO_PLAYS["default"].model_copy(deep=True)
-        play.id = str(uuid.uuid4())[:8]
+    try:
+        raw = call_huggingface(prompt) if provider == "huggingface" else call_gemini(prompt)
+        data = extract_json(raw)
+        data["id"] = str(uuid.uuid4())[:8]
+        play = Play.model_validate(data)
+        label = "Hugging Face" if provider == "huggingface" else "Gemini"
         return GenerateResponse(
             play=play,
-            ai_summary="Demo mode — add GEMINI_API_KEY for custom AI generation.",
+            ai_summary=f"{label} generated '{play.name}' — {play.description}",
         )
-
-    client = genai.Client(api_key=api_key)
-    user_prompt = f"""Create a soccer play for: "{prompt}"
-
-Return JSON:
-{{
-  "name": "...",
-  "description": "...",
-  "duration": 8.0,
-  "tags": ["..."],
-  "players": [{{"id":"a7","team":"attack","number":7,"role":"LW","keyframes":[{{"t":0,"x":0,"z":0}}]}}],
-  "ball": {{"keyframes":[{{"t":0,"x":0,"z":0}}]}}
-}}"""
-
-    response = client.models.generate_content(
-        model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM,
-            response_mime_type="application/json",
-            temperature=0.5,
-        ),
-    )
-
-    raw = response.text
-    if not raw:
-        raise ValueError("Empty AI response")
-
-    data = json.loads(raw)
-    data["id"] = str(uuid.uuid4())[:8]
-    play = Play.model_validate(data)
-    return GenerateResponse(
-        play=play,
-        ai_summary=f"AI generated '{play.name}' — {play.description}",
-    )
+    except Exception:
+        if matched:
+            play = matched.model_copy(deep=True)
+            play.id = str(uuid.uuid4())[:8]
+            return GenerateResponse(
+                play=play,
+                ai_summary=f"AI unavailable — matched demo: {play.name}",
+            )
+        raise
 
 
 def get_demo_play(play_id: str) -> Play | None:

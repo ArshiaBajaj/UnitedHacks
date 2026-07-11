@@ -10,6 +10,7 @@ backend/.env
 
 # Build
 frontend/dist/
+.next/
 *.egg-info/
 
 # OS
